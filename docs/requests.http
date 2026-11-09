@@ -1,0 +1,109 @@
+@baseUrl = http://localhost:8080
+
+### health
+GET {{baseUrl}}/api/health
+
+### замовлення в залі: столик 2, офіціант 1, клієнт 3 (знижка 10 %)
+### клієнти 1-5 зі знижками 0 / 5 / 10 / 15 / 0 %, страви 1-8, столики 1-4, офіціанти 1-3
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "tableId": 2,
+  "waiterId": 1,
+  "customerId": 3,
+  "items": [
+    {"dishId": 6, "qty": 2},
+    {"dishId": 8, "qty": 1}
+  ],
+  "paymentMethod": "CARD"
+}
+
+### друге замовлення — піде в чек з доставки
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "tableId": 1,
+  "waiterId": 2,
+  "customerId": 2,
+  "items": [
+    {"dishId": 4, "qty": 1}
+  ],
+  "paymentMethod": "CASH"
+}
+
+### перенести оплачене замовлення в документне сховище
+POST {{baseUrl}}/api/receipts/from-order/1
+Content-Type: application/json
+
+{
+  "channel": "DINE_IN",
+  "guests": 2,
+  "tags": ["birthday", "loyalty"],
+  "modifiers": [
+    {"lineNo": 1, "name": "без сухариків", "priceDelta": 0},
+    {"lineNo": 1, "name": "+подвійна курка", "priceDelta": 45.00},
+    {"lineNo": 2, "name": "без цукру", "priceDelta": 0}
+  ]
+}
+
+### те саме для доставки — інший набір полів у тій самій колекції
+POST {{baseUrl}}/api/receipts/from-order/2
+Content-Type: application/json
+
+{
+  "channel": "DELIVERY",
+  "deliveryAddress": "вул. Хрещатик, 12, кв. 5",
+  "courierName": "Олег Бондар",
+  "etaMinutes": 35,
+  "tags": ["promo-10"],
+  "modifiers": [
+    {"lineNo": 1, "name": "соус окремо", "priceDelta": 0}
+  ]
+}
+
+### повний чек за номером (спершу Redis, далі MongoDB)
+GET {{baseUrl}}/api/receipts/R-0000001
+
+### історія чеків клієнта за період
+GET {{baseUrl}}/api/receipts?customerId=3&from=2026-01-01T00:00:00Z&to=2027-01-01T00:00:00Z
+
+### топ страв за виручкою — агрегація $unwind + $group
+GET {{baseUrl}}/api/receipts/top-dishes?from=2026-01-01T00:00:00Z&to=2027-01-01T00:00:00Z&limit=5
+
+### пошук за модифікатором позиції — поля, якого немає в реляційній моделі
+GET {{baseUrl}}/api/receipts/by-modifier?name=%2Bподвійна%20курка&limit=20
+
+### зріз по каналах продажу
+GET {{baseUrl}}/api/receipts/channel-stats?from=2026-01-01T00:00:00Z&to=2027-01-01T00:00:00Z
+
+### оцінка чека клієнтом — оновлює документ і скидає кеш
+POST {{baseUrl}}/api/receipts/R-0000001/rating
+Content-Type: application/json
+
+{
+  "rating": 5,
+  "comment": "Все смачно, дякуємо"
+}
+
+### лічильники зміни: STRING + HASH
+GET {{baseUrl}}/api/live/counters
+
+### рейтинг страв за день: ZSET
+GET {{baseUrl}}/api/live/top-dishes?limit=5
+
+### стрічка останніх чеків: LIST
+GET {{baseUrl}}/api/live/feed?limit=10
+
+### кеш чека й залишок часу життя: STRING + TTL
+GET {{baseUrl}}/api/live/cache/R-0000001
+
+### прогін на 5 000 чеків — очищає колекцію receipts і таблиці receipts*
+POST {{baseUrl}}/api/benchmark/run?receipts=5000&iterations=150&warmup=40
+
+### прогін на 20 000 чеків
+POST {{baseUrl}}/api/benchmark/run?receipts=20000&iterations=150&warmup=40
+
+### прибрати згенеровані дані
+DELETE {{baseUrl}}/api/benchmark

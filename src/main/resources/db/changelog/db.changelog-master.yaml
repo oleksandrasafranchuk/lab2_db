@@ -1,0 +1,16 @@
+databaseChangeLog:
+  - include:
+      file: db/changelog/changesets/001-core-schema.sql
+      relativeToChangelogFile: false
+  - include:
+      file: db/changelog/changesets/002-core-api.sql
+      relativeToChangelogFile: false
+  - include:
+      file: db/changelog/changesets/003-receipts-schema.sql
+      relativeToChangelogFile: false
+  - include:
+      file: db/changelog/changesets/004-receipts-api.sql
+      relativeToChangelogFile: false
+  - include:
+      file: db/changelog/changesets/005-seed-data.sql
+      relativeToChangelogFile: false
